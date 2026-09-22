@@ -1,0 +1,108 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Robot Framework
+log.html
+report.html
+output.xml
+*.log
+results/
+report/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Claude Code specific (agents and settings.json are versioned: private repo)
+.claude/settings.local.json
+.robotmcp_artifacts/
+
+# Project build artifacts
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OS-specific
+Thumbs.db
+.DS_Store
+
+# Odoo-specific
+addons/
+__manifest__.py
+
+# Docker
+docker-compose.override.yml
+
+# Secrets and credentials (never commit)
+.env
+.env.local
+secrets/
+*.key
+*.pem
+credentials/
+
+# Editor-specific
+.editorconfig
+*.orig

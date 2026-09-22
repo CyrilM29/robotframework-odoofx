@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  check-em-dash:
+    name: Check no em-dash rule
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Run em-dash guard
+        run: python scripts/check_no_em_dash.py
+
+  test:
+    name: Unit and integration tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+          pip install pytest
+      - name: Run unit tests
+        run: pytest tests/ -v
+
+  robot-smoke:
+    name: Robot Framework smoke tests (future)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+      - name: Run smoke tests
+        run: |
+          echo "Smoke tests to be configured once Odoo instance is available"
+          # robot specs/odoo_smoke.robot

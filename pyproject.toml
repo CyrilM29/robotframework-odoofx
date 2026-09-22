@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robotframework-odoofx"
+version = "0.1.0"
+description = "ODOOFX : Odoo test automation for Robot Framework. ORM, RPC/XML-RPC, UI web (Playwright), workflows. Generalized from rf-test-agents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Cyril Montiel", email = "cyril@montiel.me" }]
+keywords = [
+    "robotframework", "robot-framework", "test-automation", "testing", "qa",
+    "odoo", "erp", "orm", "rpc", "xml-rpc", "json-rpc",
+    "playwright", "web-automation",
+    "self-healing", "mcp", "ai-agents",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Framework :: Robot Framework",
+    "Framework :: Robot Framework :: Library",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Acceptance",
+    "Topic :: Software Development :: Quality Assurance",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "robotframework>=7.4",
+    "requests>=2.28.0",
+    "lxml>=4.9.0",
+]
+
+[project.optional-dependencies]
+web = ["robotframework-browser>=20.0,<21"]
+rpc = []
+visual = ["Pillow>=10.0"]
+all = [
+    "robotframework-odoofx[web,rpc,visual]",
+]
+
+[project.urls]
+Homepage = "https://github.com/CyrilM29/robotframework-odoofx"
+Repository = "https://github.com/CyrilM29/robotframework-odoofx"
+"Issue Tracker" = "https://github.com/CyrilM29/robotframework-odoofx/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages]
+find = { where = ["src"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

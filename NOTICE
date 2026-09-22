@@ -1,0 +1,62 @@
+ODOOFX
+Copyright 2026 Cyril Montiel
+
+Licensed under the Apache License, Version 2.0 (see LICENSE file).
+
+================================================================================
+THIRD-PARTY COMPONENTS AND ATTRIBUTIONS
+================================================================================
+
+ODOOFX is built on top of, and inspired by, several open-source projects:
+
+1. Robot Framework
+   - Project: https://robotframework.org/
+   - License: Apache License 2.0
+   - Used for: Test automation framework, keyword definition, test execution
+
+2. rf-test-agents
+   - Repository: https://github.com/CyrilM29/rf-test-agents
+   - License: Apache License 2.0
+   - Author: Cyril Montiel
+   - Used for: Agent methodology (planner, generator, healer, istqb, verifier)
+     and MCP contract patterns. ODOOFX adapts the universal RF agents for
+     Odoo-specific capabilities.
+
+3. SAPFX (SAP test automation)
+   - Repository: https://github.com/CyrilM29/robotframework-sapfx
+   - License: Apache License 2.0
+   - Author: Cyril Montiel
+   - Used for: Project structure, distribution patterns, memory organization,
+     CI/CD workflow, and guard mechanics. ODOOFX mirrors SAPFX's design for
+     another ERP (Odoo instead of SAP).
+
+4. Playwright
+   - Project: https://playwright.dev/
+   - License: Apache License 2.0
+   - Used for: Web UI automation via Browser library (Playwright browsers)
+
+5. Robot Framework Browser Library
+   - Project: https://github.com/MarketSquare/robotframework-browser
+   - License: Apache License 2.0
+   - Used for: High-level keywords for web automation
+
+================================================================================
+VENDORED COMPONENTS
+================================================================================
+
+None at this stage (0.1.0). Dependencies are imported directly from PyPI.
+
+================================================================================
+NO MATERIAL COPIED WHOLESALE
+================================================================================
+
+ODOOFX is NOT a fork of SAPFX or rf-test-agents. It is a new project that:
+- Adopts the same architectural patterns and methodology
+- Targets a different ERP (Odoo instead of SAP)
+- Implements domain-specific keywords and agents for Odoo
+- Shares the same author and design philosophy
+
+Code was written fresh for Odoo automation. The similarities in structure
+reflect best practices established in the SAPFX and rf-test-agents projects.
+
+================================================================================
