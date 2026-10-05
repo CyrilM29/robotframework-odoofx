@@ -1,0 +1,59 @@
+# Publication of the keyword documentation pages (Libdoc) on GitHub Pages.
+# The source is `docs/libdoc/`: the folder the public export ships with the
+# library (the page is generated from the code in the private workshop by
+# `scripts/build_libdoc.py`). The deployment goes through an ARTIFACT, not a
+# `gh-pages` branch: nothing to copy by hand, and a fresh history of `main`
+# cannot carry the site away.
+# Prerequisite (once, on the public repository): Settings -> Pages -> Source:
+# "GitHub Actions". A "Deploy from a branch" source would disable this
+# workflow: Pages has ONE source.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/libdoc/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and a publication under way is not cut (the site
+# would be half laid).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # The private repository carries this workflow too (the public tree is an
+    # export of it), but its pages live elsewhere and Pages is not available
+    # there: skip instead of a misleading red run.
+    if: github.repository == 'CyrilM29/robotframework-odoofx'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write # OIDC: the workflow's identity authenticates
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Fail-closed: a red run beats a site missing a page (the landing page
+      # links it, a dead link shows on the reader's side).
+      - name: Every documentation page is present
+        run: |
+          for page in index.html OdooFxLibrary.html; do
+            test -f "docs/libdoc/$page" || { echo "missing: docs/libdoc/$page"; exit 1; }
+          done
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/libdoc
+
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

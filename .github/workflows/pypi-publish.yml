@@ -1,0 +1,137 @@
+# Publication on PyPI by Trusted Publishing (OIDC): no token is stored.
+# Prerequisites (once):
+# - on pypi.org, a "pending publisher" for the project robotframework-odoofx:
+#   owner CyrilM29, repository robotframework-odoofx, workflow pypi-publish.yml,
+#   environment pypi;
+# - on the public repository, an environment named `pypi`.
+# Trigger: MANUAL only (Actions -> pypi-publish -> Run workflow), as in SAPFX:
+# there is no public GitHub Release, and a PyPI publication is an explicit human
+# gesture. The version typed at launch must be the one of pyproject.toml: typing
+# it is the confirmation, and a typo stops the job before anything is built.
+# The README sent to PyPI is rendered here: no EN/FR banner, absolute links (a
+# relative link is dead on PyPI, which knows nothing of the repository).
+name: pypi-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version to publish, identical to pyproject.toml (e.g. 0.1.0).
+          It is the confirmation: a mismatch stops the job.
+        required: true
+      post:
+        description: >-
+          POST-RELEASE number (1, 2...) to republish the SAME version with a
+          corrected PyPI page. Leave empty for a normal publication.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    # The private repository carries this workflow too (the public tree is an
+    # export of it): the PyPI publisher only trusts the public repository, so
+    # skip instead of a misleading red run.
+    if: github.repository == 'CyrilM29/robotframework-odoofx'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write # OIDC: the workflow's identity authenticates
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Requested version must match pyproject version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          python - <<'EOF'
+          import os, re, sys
+          requested = os.environ["REQUESTED"].strip().lstrip("v")
+          text = open("pyproject.toml", encoding="utf-8").read()
+          version = re.search(r'^version = "([^"]+)"', text, re.M).group(1)
+          if requested != version:
+              sys.exit(f"requested version {requested} != pyproject {version}")
+          print(f"version {version} OK")
+          EOF
+
+      # The files of a PyPI version are IMMUTABLE: the page links the keyword
+      # documentation, so the site must answer before anything is published.
+      - name: The keyword documentation is online
+        run: |
+          curl --fail --silent --show-error --output /dev/null \
+            https://cyrilm29.github.io/robotframework-odoofx/OdooFxLibrary.html
+
+      # A page to correct (README) means republishing the same version as a
+      # post-release: pyproject is patched for the build only, never committed
+      # with a diverging version (the code is identical, only the page changes).
+      - name: Apply the post-release suffix (page-only fix)
+        if: inputs.post != ''
+        env:
+          POST: ${{ inputs.post }}
+        run: |
+          python - <<'EOF'
+          import os, pathlib, re, sys
+          post = os.environ["POST"].strip()
+          if not post.isdigit() or post == "0":
+              sys.exit(f"post must be an integer >= 1 (got {post!r})")
+          path = pathlib.Path("pyproject.toml")
+          text = path.read_text(encoding="utf-8")
+          current = re.search(r'^version = "([^"]+)"', text, re.M).group(1)
+          if ".post" in current or ".dev" in current or "rc" in current:
+              sys.exit(f"version already suffixed ({current}): nothing to do here")
+          target = f"{current}.post{post}"
+          path.write_text(
+              text.replace(f'version = "{current}"', f'version = "{target}"', 1),
+              encoding="utf-8")
+          print(f"post-release: {current} -> {target}")
+          EOF
+
+      - name: Render the PyPI README (no EN/FR banner, absolute links)
+        run: |
+          python - <<'EOF'
+          import pathlib, re, sys
+          p = pathlib.Path("README.md")
+          text = p.read_text(encoding="utf-8")
+          banner = "**[Version française](README.fr.md)**\n\n"
+          raw = "https://raw.githubusercontent.com/CyrilM29/robotframework-odoofx/main"
+          blob = "https://github.com/CyrilM29/robotframework-odoofx/blob/main"
+          if banner not in text:
+              sys.exit("EN/FR banner not found in README.md")
+          text = text.replace(banner, "", 1)
+          # A relative link to a repository file (LICENSE, NOTICE, docs/...) is
+          # DEAD on PyPI: absolutize it here only, the repository README keeps
+          # its relative links. An IMAGE goes to raw, a link to blob (a blob URL
+          # serves the HTML page of the file, not the image).
+          text, linked = re.subn(
+              r"(!?)\[((?:[^\[\]]|\[[^\]]*\])*)\]\((?!https?://|#|mailto:)([^)\s]+)\)",
+              lambda m: "%s[%s](%s/%s)" % (
+                  m.group(1), m.group(2),
+                  raw if m.group(1) else blob, m.group(3).lstrip("./")), text)
+          if not linked:
+              sys.exit("no relative repository link found: pattern changed?")
+          # Reverse guard, WIDER than the rewriter: a relative link left over is
+          # a dead link, and "at least one rewritten" would not see it.
+          leftovers = sorted(set(re.findall(
+              r"\]\((?!https?://|#|mailto:)([^)]+)\)", text)))
+          if leftovers:
+              sys.exit("relative links LEFT, hence dead on PyPI: %r" % leftovers)
+          p.write_text(text, encoding="utf-8")
+          print("PyPI README OK (%d link(s) made absolute)" % linked)
+          EOF
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --quiet build twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Publish to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
