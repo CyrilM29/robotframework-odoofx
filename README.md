@@ -2,6 +2,10 @@
 
 **[Version française](README.fr.md)**
 
+[![PyPI](https://img.shields.io/pypi/v/robotframework-odoofx)](https://pypi.org/project/robotframework-odoofx/)
+[![Python](https://img.shields.io/pypi/pyversions/robotframework-odoofx)](https://pypi.org/project/robotframework-odoofx/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/CyrilM29/robotframework-odoofx/blob/main/LICENSE)
+
 `OdooFxLibrary` brings Odoo test automation to Robot Framework. Today it talks
 to Odoo through its external API: XML-RPC up to Odoo 18, JSON-2 from Odoo 19,
 behind one keyword vocabulary that reads records and state codes, and writes
