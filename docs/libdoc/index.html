@@ -71,23 +71,27 @@
   <p class="kicker">Robot Framework library</p>
   <h1>robotframework-odoofx: keyword documentation</h1>
   <p class="lead">
-    <code>OdooFxLibrary</code> brings Odoo test automation to Robot Framework: the RPC
-    channels (XML-RPC up to Odoo 18, JSON-2 from Odoo 19), ORM reads and
-    opt-in, journaled writes, under one keyword vocabulary.
+    <code>OdooFxLibrary</code> brings Odoo test automation to Robot Framework through
+    two channels under one keyword vocabulary: the web client, driven through the
+    Browser library, and the external API (XML-RPC up to Odoo 18, JSON-2 from
+    Odoo 19), with ORM introspection and opt-in, journaled writes.
   </p>
   <p class="note">
-    Bootstrap phase. The RPC channel works, reads and writes (writes are off
-    unless the connection opts in). The web channel is a skeleton whose keywords
-    only warn: a suite that calls them proves nothing about them.
+    Alpha. Both channels work and are proven live on Odoo 16 and Odoo 19
+    Community. Writes are off unless the connection or the web login opts in,
+    and every write is journaled. Not covered yet: buttons that open a wizard,
+    section and note lines, line deletion. <code>Create New Quotation</code> is
+    a skeleton that only warns.
   </p>
 
   <h2>Keyword reference</h2>
   <div class="cards">
     <a class="card" href="OdooFxLibrary.html">
       <h3>OdooFxLibrary</h3>
-      <p class="channel">RPC channel, ORM reads and writes</p>
-      <p>Connect and prove the target, count and read records, compare state
-      codes, write with a journal and a way back.</p>
+      <p class="channel">Web client and RPC channels</p>
+      <p>Prove the target, log in and navigate by external id, enter and save
+      forms, count and read records, compare state codes, introspect the ORM,
+      write with a journal.</p>
     </a>
   </div>
 

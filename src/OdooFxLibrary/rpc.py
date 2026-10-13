@@ -228,6 +228,13 @@ class XmlRpcChannel:
         return self._call(model, method, [ids], {**(kwargs or {}), "context": _context(context)},
                           write=True)
 
+    def call_model(self, model: str, method: str, kwargs: Optional[dict] = None,
+                   context: Optional[dict] = None, write: bool = False) -> Any:
+        # No positional argument at all: a list of ids would land on the method's
+        # first parameter (name_search received it as its name).
+        return self._call(model, method, [], {**(kwargs or {}), "context": _context(context)},
+                          write=write)
+
     def close(self) -> None:
         self._object("close")()
         self._object_once("close")()
@@ -317,6 +324,10 @@ class Json2Channel:
              context: Optional[dict] = None) -> Any:
         return self._call(model, method,
                           {**(kwargs or {}), "ids": ids, "context": _context(context)})
+
+    def call_model(self, model: str, method: str, kwargs: Optional[dict] = None,
+                   context: Optional[dict] = None, write: bool = False) -> Any:
+        return self._call(model, method, {**(kwargs or {}), "context": _context(context)})
 
     def close(self) -> None:
         self._session.close()

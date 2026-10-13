@@ -6,67 +6,39 @@
 [![Python](https://img.shields.io/pypi/pyversions/robotframework-odoofx)](https://pypi.org/project/robotframework-odoofx/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/CyrilM29/robotframework-odoofx/blob/main/LICENSE)
 
-`OdooFxLibrary` apporte l'automatisation des tests Odoo à Robot Framework.
-Aujourd'hui elle parle à Odoo par son API externe : XML-RPC jusqu'à Odoo 18,
-JSON-2 à partir d'Odoo 19, derrière un même vocabulaire de keywords qui lit les
-enregistrements et les codes d'état, et n'écrit que si la connexion l'autorise,
-avec un journal de chaque écriture. Elle vise Odoo Community et Enterprise.
-L'interface web (bibliothèque Browser) est le prochain canal.
-
-Ce dépôt publie les **sources de la bibliothèque** et, à mesure qu'elles
-s'écrivent, la documentation qui la concerne et la référence de ses keywords.
-
-> **État (0.1.0, 2026-10-05) : amorçage.** Le canal RPC fonctionne, en lecture
-> et en écriture, éprouvé en vrai sur Odoo 16 (XML-RPC) et Odoo 19.0-20260908
-> (XML-RPC et JSON-2). Les écritures sont fermées tant que la connexion ne les
-> autorise pas. Le canal web est un squelette qui ne fait qu'avertir. Les
-> signatures peuvent encore changer avant la 1.0.
-
-## Installation
-
 ```bash
 pip install robotframework-odoofx
 ```
 
+`OdooFxLibrary` apporte l'automatisation des tests Odoo à Robot Framework par
+**deux canaux sous un même vocabulaire de keywords** : le client web d'Odoo,
+piloté par la bibliothèque [Browser](https://robotframework-browser.org/), et
+l'API externe d'Odoo (XML-RPC jusqu'à Odoo 18, JSON-2 à partir d'Odoo 19). Une
+suite peut les croiser : préparer ou contrôler les données par l'API, piloter
+l'écran pour ce que l'on teste vraiment. Elle vise Odoo Community et
+Enterprise, et est **éprouvée en vrai sur Odoo 16 et Odoo 19 Community** (elle
+est conçue pour Odoo 14 et suivants ; 14, 15, 17 et 18 ne sont pas encore
+mesurés).
+
+> **État : alpha.** Les deux canaux fonctionnent et sont éprouvés en vrai sur
+> Odoo 16 et 19. Pas encore couverts : les boutons qui ouvrent un assistant,
+> les lignes de section et de note, la suppression de ligne. Les signatures
+> peuvent encore changer avant la 1.0.
+
+## Installation
+
 Prérequis : Python 3.10 ou plus, Robot Framework 7.4 ou plus, et une instance
-Odoo joignable en HTTP (conçue pour Odoo 14 et suivants, éprouvée sur 16 et
-19). L'extra `web`
+Odoo joignable en HTTP. Le canal RPC n'exige rien de plus. L'extra `web`
 (`pip install "robotframework-odoofx[web]"`, puis `rfbrowser init` une fois
-pour les navigateurs Playwright) apporte la bibliothèque Browser pour le futur
-canal web ; `all` installe tous les extras.
+pour les navigateurs Playwright) apporte la bibliothèque Browser sur laquelle
+le canal web est bâti ; `all` installe tous les extras.
 
 Documentation des keywords :
 [cyrilm29.github.io/robotframework-odoofx](https://cyrilm29.github.io/robotframework-odoofx/).
 
-## Keywords de la version actuelle
+## Démarrage rapide
 
-| Keyword | Rôle |
-| --- | --- |
-| `Connect To Odoo` | Prouver la cible (URL, base, version) et ouvrir la connexion RPC ; `channel=auto` choisit JSON-2 dès Odoo 19, XML-RPC avant ; `allow_write` autorise les écritures, `expected_series` refuse une autre version d'Odoo |
-| `Get Odoo Connection Info` | La cible prouvée de la connexion courante, jamais le secret |
-| `Count Odoo Records` | Compter les enregistrements d'un modèle qui répondent à un domaine |
-| `Search Read Odoo Records` | Lire les enregistrements d'un modèle qui répondent à un domaine |
-| `Get Field Selection Values` | Les codes techniques d'un champ de sélection |
-| `Count Odoo Records By State` | Nombre d'enregistrements par code d'état |
-| `Get Odoo Record State` | Le code d'état d'un enregistrement identifié |
-| `Odoo Record State Should Be` | Échouer si l'enregistrement identifié n'est pas dans le code d'état attendu |
-| `Assert Quotation Status Is` | Vérifier le code d'état d'un devis, par référence de commande ou identifiant |
-| `Create Odoo Record`, `Update Odoo Record`, `Delete Odoo Record` | Écrire un enregistrement (demande `allow_write`) |
-| `Call Odoo Record Method` | Appeler une méthode du modèle comme `action_confirm` ou `action_cancel` (demande `allow_write`) |
-| `Get Odoo Write Journal` | Les écritures (après l'entrée `since`) avec leur phase : `planned`, `done`, `failed` ou `unknown` (à relire, jamais à renvoyer) |
-| `Odoo Write Journal Should Hold No Unknown Outcome`, `Odoo Last Write Should Be` | Assertions sur le journal : aucune écriture d'effet inconnu, la dernière écriture dans une phase donnée |
-| `Reconcile Odoo Write` | Solder une entrée `planned` ou `unknown` du journal après relecture de l'enregistrement |
-| `Get Odoo Config Parameter` | Un paramètre système comme `web.base.url` (administrateur) |
-| `Odoo User Should Be In Group`, `Odoo User Should Not Be In Group` | Appartenance d'un utilisateur à un groupe, désigné par son identifiant externe |
-| `New Odoo Run Marker` | Une étiquette unique à mettre dans un champ libre des enregistrements qu'un run crée |
-| `Get Odoo Server Time` | L'horloge du serveur (UTC, à la seconde), pour borner ce qu'un run a créé |
-| `Resolve Odoo External Id` | L'id en base derrière un identifiant externe comme `product.product_product_1`, prouvé du modèle attendu |
-| `Get Odoo Record` | Un enregistrement identifié, en entier ou par champs |
-| `Odoo Record Exists` | Si un enregistrement existe (archivés compris) |
-| `Odoo Record Should Exist`, `Odoo Record Should Not Exist` | Prouver une présence ou une disparition sur l'enregistrement identifié |
-| `Disconnect From Odoo` | Fermer la connexion |
-| `Navigate To Menu` | Squelette (canal web), n'avertit que |
-| `Create New Quotation` | Squelette, n'avertit que |
+Par l'API, lire l'état d'un devis :
 
 ```robotframework
 *** Settings ***
@@ -74,17 +46,142 @@ Library    OdooFxLibrary
 
 *** Test Cases ***
 Read A Quotation State
-    Connect To Odoo    http://localhost:8069    ma_base    admin    ${PASSWORD}    channel=xmlrpc
+    Connect To Odoo    http://localhost:8069    my_database    admin    ${PASSWORD}    channel=xmlrpc
     Assert Quotation Status Is    sale    S00004
     [Teardown]    Disconnect From Odoo
 ```
 
-Les états se comparent par code (`draft`, `sent`, `sale`, `cancel`), jamais par
-libellé traduit : un libellé fait échouer l'assertion (« pas un code d'état »).
+À l'écran, saisir un contact dans le client web puis le relire indépendamment :
 
-Les identifiants ne vivent jamais dans une suite : passez-les en ligne de
+```robotframework
+*** Settings ***
+Library     Browser
+Library     OdooFxLibrary
+
+*** Test Cases ***
+Enter A Company Contact
+    ${marker}=    New Odoo Run Marker    prefix=DEMO
+    New Browser    chromium    headless=${TRUE}
+    New Page    about:blank
+    Log In To Odoo Web Client    http://localhost:8069    my_database    admin    ${PASSWORD}
+    ...    expected_series=19    allow_write=${TRUE}
+    Navigate To Menu    contacts.menu_contacts
+    Open New Odoo Web Form
+    Fill Odoo Web Field    company_type    company
+    Fill Odoo Web Field    name    ${marker} Company
+    ${contact_id}=    Save Odoo Web Record
+    ${found}=    Search Read Odoo Records Through Web Session    res.partner
+    ...    ${{[["id", "=", $contact_id]]}}    fields=${{["name"]}}
+    Should Be Equal    ${found}[0][name]    ${marker} Company
+    [Teardown]    Run Keywords    Run Keyword And Ignore Error    Discard Odoo Web Changes
+    ...    AND    Close Browser
+```
+
+Les identifiants ne vivent jamais dans une suite : les passer en ligne de
 commande (`robot -v "PASSWORD: Secret:..." suite.robot`, la variable typée de
 Robot Framework 7.4 les garde hors des journaux) ou par l'environnement.
+
+## Comportement
+
+- **La cible est prouvée d'abord.** `Get Odoo Server Version` n'exige aucune
+  session ; `Connect To Odoo` et `Log In To Odoo Web Client` vérifient la base
+  et la série d'Odoo, et `expected_series` refuse une autre version d'Odoo
+  avant tout geste (deux versions d'Odoo tournent souvent côte à côte).
+- **Des noms techniques et des codes, jamais des libellés.** Les libellés sont
+  traduits et changent d'une version à l'autre. Les menus s'ouvrent par
+  identifiant externe (`sale.sale_menu_root`), les champs se nomment par leur
+  nom technique, une option de radio ou de sélection se donne par son code
+  (`one`, pas son libellé), les états se comparent par code (`draft`, `sent`,
+  `sale`, `cancel`). Un libellé fait échouer l'assertion : « not a state code ».
+- **Les écritures sont fermées tant que vous ne les autorisez pas**
+  (`allow_write`), sur les deux canaux, et chacune est journalisée avec sa
+  phase : `planned`, `done`, `failed` ou `unknown`. Une écriture `unknown` (la
+  réponse s'est perdue) se relit et se réconcilie, elle ne se renvoie jamais.
+- **Une valeur est relue telle que saisie.** Un champ que le client web n'a pas
+  pris fait échouer le keyword aussitôt. Les valeurs relationnelles se
+  choisissent parmi les propositions du client, jamais par Créer ni Recherche
+  avancée, qui écriraient ou ouvriraient une boîte de dialogue.
+- **Un formulaire laissé à moitié saisi n'est jamais enregistré par accident.**
+  Odoo enregistre un formulaire qu'on quitte : `Navigate To Menu`,
+  `Go Back Through Odoo Web Breadcrumb` et `Log Out Of Odoo Web Client`
+  refusent d'en quitter un qui a des modifications non enregistrées
+  (enregistrer ou abandonner d'abord) : un test en échec n'écrit jamais ce
+  qu'il a laissé derrière lui.
+
+## Keywords
+
+**Connexion, lectures et codes d'état** (canal RPC) :
+
+| Keyword | Rôle |
+| --- | --- |
+| `Connect To Odoo` | Prouver la cible (URL, base, version) et ouvrir la connexion RPC ; `channel=auto` choisit JSON-2 à partir d'Odoo 19, XML-RPC avant ; `allow_write` autorise les écritures, `expected_series` refuse une autre version d'Odoo |
+| `Get Odoo Connection Info` | La cible prouvée de la connexion courante, jamais le secret |
+| `Count Odoo Records` | Compter les enregistrements d'un modèle qui répondent à un domaine |
+| `Search Read Odoo Records` | Lire les enregistrements d'un modèle qui répondent à un domaine |
+| `Get Odoo Record` | Un enregistrement identifié, en entier ou par champs |
+| `Odoo Record Exists` | Si un enregistrement existe (les archivés comptent) |
+| `Odoo Record Should Exist`, `Odoo Record Should Not Exist` | Prouver une présence ou une disparition sur l'enregistrement identifié |
+| `Get Field Selection Values` | Les codes techniques d'un champ de sélection |
+| `Count Odoo Records By State` | Le nombre d'enregistrements par code d'état |
+| `Get Odoo Record State` | Le code d'état d'un enregistrement identifié |
+| `Odoo Record State Should Be` | Échouer sauf si l'enregistrement identifié est dans le code d'état attendu |
+| `Assert Quotation Status Is` | Contrôler le code d'état d'un devis, par référence de commande ou par identifiant |
+| `Get Odoo Config Parameter` | Un paramètre système tel que `web.base.url` (administrateur) |
+| `Odoo User Should Be In Group`, `Odoo User Should Not Be In Group` | L'appartenance d'un utilisateur à un groupe, le groupe nommé par son identifiant externe |
+| `Resolve Odoo External Id` | L'identifiant en base derrière un identifiant externe tel que `product.product_product_1`, prouvé du modèle attendu |
+| `Get Odoo Server Time` | L'horloge du serveur (UTC, à la seconde), pour borner ce qu'un run a créé |
+| `New Odoo Run Marker` | Un libellé unique à mettre dans un champ texte libre des enregistrements qu'un run crée, pour les retrouver |
+| `Disconnect From Odoo` | Fermer la connexion |
+
+**Écritures et leur journal** (les deux canaux journalisent) :
+
+| Keyword | Rôle |
+| --- | --- |
+| `Create Odoo Record`, `Update Odoo Record`, `Delete Odoo Record` | Écrire un enregistrement (exige `allow_write`) |
+| `Call Odoo Record Method` | Appeler une méthode de modèle comme `action_confirm` ou `action_cancel` (exige `allow_write`) |
+| `Get Odoo Write Journal` | Chaque écriture (après l'entrée `since`) avec sa phase : `planned`, `done`, `failed` ou `unknown` (à relire, jamais à renvoyer) |
+| `Odoo Write Journal Should Hold No Unknown Outcome`, `Odoo Last Write Should Be` | Asserter sur le journal : aucune écriture à l'effet inconnu, la dernière écriture dans une phase donnée |
+| `Reconcile Odoo Write` | Solder une entrée `planned` ou `unknown` du journal après relecture de l'enregistrement |
+
+**Structure de la base** (canal RPC) :
+
+| Keyword | Rôle |
+| --- | --- |
+| `Get Odoo Model Fields`, `Get Odoo Field Definition`, `Odoo Field Exists` | Les champs d'un modèle avec leur type, leur relation et leur inverse ; un champ, ou s'il existe (des champs apparaissent et disparaissent d'une version à l'autre) |
+| `Get Odoo Model Relations` | Les champs many2one, one2many et many2many d'un modèle, avec le modèle visé |
+| `Search Odoo Models` | Les modèles dont le nom technique contient un texte, assistants distingués |
+| `Get Odoo Module State`, `Odoo Module Should Be Installed` | Le code d'état d'un module ; échouer sauf s'il est installé |
+| `Call Odoo Model Method` | Appeler une méthode sans enregistrement (`name_search`, `search_count`...) ; une méthode qui peut écrire exige `allow_write` et est journalisée |
+
+**Client web : session, navigation et lectures** (bâti sur la bibliothèque
+Browser, qui ouvre le navigateur, le contexte et la page) :
+
+| Keyword | Rôle |
+| --- | --- |
+| `Get Odoo Server Version` | La version et la série du serveur, sans session ni secret : la preuve par laquelle s'ouvre une suite |
+| `Log In To Odoo Web Client` | Se connecter par la page de connexion d'une base nommée ; `expected_series` refuse une autre version d'Odoo avant même l'ouverture de la page ; la base et la série de la session sont prouvées, le secret n'est jamais journalisé ; `allow_write` autorise les écritures à l'écran |
+| `Get Odoo Web Session Info`, `Odoo Web Session Is Open`, `Odoo Web Client Is Shown` | La cible de la session web ouverte ; si la session et le client web sont toujours là |
+| `Navigate To Menu` | Ouvrir une application puis ses menus, par identifiants externes (`sale.sale_menu_root`), jamais par libellé ; attend la vue qui remplace celle affichée |
+| `Get Odoo Web View`, `Get Odoo Web Current App` | La vue affichée (modèle, type de vue, action, identifiant d'enregistrement) et l'application de la barre de menus |
+| `Count Odoo Web View Records`, `Get Odoo Web Pager Total`, `Count Odoo Web Search Facets` | Ce que montre la liste ou le kanban : les enregistrements (cartes fantômes exclues), le total du pager, les facettes de recherche |
+| `Open Odoo Web Record`, `Get Odoo Web List Cell Text`, `Get Odoo Web Breadcrumb Depth`, `Go Back Through Odoo Web Breadcrumb` | Ouvrir un enregistrement affiché dans son formulaire (par la cellule d'un champ nommé), lire une cellule de liste, lire le fil d'Ariane et y revenir |
+| `Get Odoo Web Statusbar Value`, `Odoo Web Form Should Be Saved` | Le code technique de l'étape courante du formulaire ; aucune modification en attente |
+| `Count Odoo Records Through Web Session`, `Search Read Odoo Records Through Web Session` | Des lectures avec le cookie de session de la page, sur la même route d'Odoo 16 à 19 |
+| `Log Out Of Odoo Web Client` | Se déconnecter par le menu utilisateur |
+
+**Client web : saisie de formulaire** (les écritures à l'écran exigent
+`allow_write` à la connexion et sont journalisées) :
+
+| Keyword | Rôle |
+| --- | --- |
+| `Open New Odoo Web Form`, `Select Odoo Web Form Tab` | Ouvrir le formulaire d'un nouvel enregistrement depuis une liste ou un kanban ; afficher une page d'onglets par son nom |
+| `Fill Odoo Web Field`, `Get Odoo Web Field Value` | Saisir une valeur et la relire aussitôt à l'écran : texte, dates (données en ISO, tapées au format de l'utilisateur), option de radio et sélection par code, case à cocher, many2one et étiquettes par nom exact ou par identifiant ; lire ce que montre le formulaire |
+| `Save Odoo Web Record`, `Discard Odoo Web Changes`, `Get Odoo Web Invalid Fields`, `Odoo Web Form Is Unsaved` | Enregistrer et obtenir l'identifiant, ou un refus qui nomme sa cause ; abandonner les modifications en attente ; les champs marqués invalides ; si le formulaire a des modifications non enregistrées |
+| `Add Odoo Web Line`, `Fill Odoo Web Line Field`, `Get Odoo Web Lines` | Ajouter une ligne à un champ one2many (les lignes d'une commande), saisir un champ de la ligne en édition, lire les lignes une fois affichées telles qu'enregistrées |
+| `Click Odoo Web Form Button` | Appuyer sur un bouton qui appelle une méthode de l'enregistrement (`action_confirm`), par son nom technique ; attend qu'Odoo ait répondu et rechargé l'enregistrement ; exige `allow_write`, journalisé |
+
+`Create New Quotation` est un squelette qui se contente d'avertir : ne pas s'y
+fier.
 
 ## Organisation
 

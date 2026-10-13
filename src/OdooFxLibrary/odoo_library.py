@@ -2,7 +2,7 @@
 OdooFxLibrary : Core Robot Framework library for Odoo test automation.
 
 Provides keywords for:
-- Web UI automation (Browser/Playwright), not implemented yet
+- Web UI automation, built on the Browser library (module ``web``)
 - RPC access to the Odoo backend (XML-RPC up to Odoo 18, JSON-2 from Odoo 19)
 - ORM reads: counts, records, selection values, record states
 
@@ -17,6 +17,12 @@ from robot.api import logger
 from robot.api.deco import keyword, library
 from robot.api.types import Secret
 
+from .orm import OdooOrmKeywords
+from .web import OdooWebKeywords
+from .web_buttons import OdooWebButtonKeywords
+from .web_choices import OdooWebChoiceKeywords
+from .web_form import OdooWebFormKeywords
+from .web_lines import OdooWebLineKeywords
 from .rpc import (
     OdooRpcError, choose_channel, detect_version, open_channel, series_of, server_time,
 )
@@ -30,7 +36,8 @@ def _reveal(secret: Union[Secret, str]) -> str:
 
 
 @library
-class OdooFxLibrary:
+class OdooFxLibrary(OdooWebKeywords, OdooWebFormKeywords, OdooWebChoiceKeywords, OdooWebLineKeywords,
+                    OdooWebButtonKeywords, OdooOrmKeywords):
     """Odoo test automation library for Robot Framework.
 
     *Connection.* `Connect To Odoo` proves the target (URL, database, version)
@@ -57,17 +64,33 @@ class OdooFxLibrary:
     it can be found again and removed; `Odoo Record Should Not Exist` proves a
     removal on the identified record.
 
-    `Navigate To Menu` and `Create New Quotation` are still skeletons that do
-    nothing but warn, so a suite that calls them proves nothing about them.
+    *Examples.* A keyword's example is taken from a green suite of the
+    workbench, played on the ``odoo16`` lab instance: ``${quotation_id}`` and
+    ``${client_id}`` name a draft quotation and its client created by the run,
+    ``${mark}`` the journal length read before the test.
+
+    *Web channel.* Built on the Browser library, which opens the page:
+    `Log In To Odoo Web Client` proves the target through the web session,
+    then the ``Odoo Web`` keywords navigate by external ids, read the view,
+    and fill, save or discard a form (`Fill Odoo Web Field`, `Save Odoo Web Record`).
+
+    *Structure.* `Get Odoo Model Fields`, `Get Odoo Model Relations`,
+    `Search Odoo Models` and `Get Odoo Module State` read the database's
+    structure; `Call Odoo Model Method` calls a method that needs no record.
+
+    `Create New Quotation` is still a skeleton that does nothing but warn, so
+    a suite that calls it proves nothing about it.
     """
 
     ROBOT_LIBRARY_SCOPE = "GLOBAL"
-    ROBOT_LIBRARY_VERSION = "0.1.0"
+    ROBOT_LIBRARY_VERSION = "0.2.0"
 
     def __init__(self):
         self._channel = None
         self._info = None
         self._journal = []
+        self._web_writes = False
+        self._web_filled = set()
 
     def _require_channel(self):
         if self._channel is None:
@@ -92,6 +115,11 @@ class OdooFxLibrary:
         login, when the server runs another major version. Returns the
         connection info (url, database, server_version, series, channel, uid,
         allow_write), never the secret.
+
+        Example:
+        | ${info}=    `Connect To Odoo`    http://127.0.0.1:8016    odoo16    admin    ${PASSWORD}
+        | ...    allow_write=${TRUE}    expected_series=16
+        | Should Be Equal    ${info}[channel]    xmlrpc
         """
         secret = _reveal(password)
         if not secret:
@@ -129,7 +157,12 @@ class OdooFxLibrary:
 
     @keyword("Get Odoo Connection Info")
     def get_odoo_connection_info(self) -> dict:
-        """Return the proven target of the current connection (no secret)."""
+        """Return the proven target of the current connection (no secret).
+
+        Example:
+        | ${info}=    `Get Odoo Connection Info`
+        | Should Be Equal As Integers    ${info}[series]    16
+        """
         self._require_channel()
         return dict(self._info)
 
@@ -143,6 +176,11 @@ class OdooFxLibrary:
 
         A count proves a target's demo data. To prove a presence or a
         disappearance, read the identified record instead of comparing counts.
+
+        Example:
+        | ${marker}=    `New Odoo Run Marker`    prefix=ODOOFX-DEVIS16
+        | ${count}=    `Count Odoo Records`    sale.order    ${{[["client_order_ref", "=", $marker]]}}
+        | Should Be Equal As Integers    ${count}    0
         """
         return self._require_channel().search_count(model, domain or [], context=context)
 
@@ -152,7 +190,13 @@ class OdooFxLibrary:
                                  order: str = "", context: Optional[dict] = None) -> list:
         """Return the records of ``model`` matching ``domain`` as a list of dicts.
 
-        ``context`` is the call's context (``lang``, ``active_test``...)."""
+        ``context`` is the call's context (``lang``, ``active_test``...).
+
+        Example:
+        | ${lines}=    `Search Read Odoo Records`    sale.order.line    ${{[["order_id", "=", $quotation_id]]}}
+        | ...    fields=${{["product_id", "product_uom_qty"]}}
+        | Length Should Be    ${lines}    1
+        """
         return self._require_channel().search_read(
             model, domain or [], fields=fields, limit=limit, order=order, context=context)
 
@@ -162,12 +206,23 @@ class OdooFxLibrary:
 
         Read from the HTTP ``Date`` header: the only clock a client can trust to
         bracket what a run created, for instance ``[["create_date", ">=", t0]]``.
+
+        Example:
+        | ${t0}=    `Get Odoo Server Time`
+        | ${count}=    `Count Odoo Records`    product.product    ${{[["create_date", ">=", $t0]]}}
+        | ...    context=${{{"active_test": False}}}
+        | Should Be Equal As Integers    ${count}    0
         """
         return server_time(self._require_channel_info()["url"])
 
     @keyword("Get Field Selection Values")
     def get_field_selection_values(self, model: str, field: str) -> list:
-        """Return the technical codes of a selection field, in declaration order."""
+        """Return the technical codes of a selection field, in declaration order.
+
+        Example:
+        | ${states}=    `Get Field Selection Values`    sale.order    state
+        | Should Contain    ${states}    sale
+        """
         definition = self._require_channel().fields_get(
             model, ["type", "selection"]).get(field)
         if definition is None:
@@ -178,7 +233,12 @@ class OdooFxLibrary:
 
     @keyword("Count Odoo Records By State")
     def count_odoo_records_by_state(self, model: str, state_field: str = "state") -> dict:
-        """Return ``{state code: record count}`` for every code of ``state_field``."""
+        """Return ``{state code: record count}`` for every code of ``state_field``.
+
+        Example:
+        | ${counts}=    `Count Odoo Records By State`    sale.order
+        | Should Be True    ${counts}[sale] > 0
+        """
         return {code: self.count_odoo_records(model, [[state_field, "=", code]])
                 for code in self.get_field_selection_values(model, state_field)}
 
@@ -191,6 +251,10 @@ class OdooFxLibrary:
         ``record`` is a database id or a domain that must match exactly one
         record: anything else fails, so a state is never read off a guess.
         ``context`` is the call's context (``active_test``...).
+
+        Example:
+        | ${state}=    `Get Odoo Record State`    sale.order    ${quotation_id}
+        | Should Be Equal    ${state}    draft
         """
         domain = [["id", "=", record]] if isinstance(record, int) else record
         found = self._require_channel().search_read(
@@ -207,6 +271,9 @@ class OdooFxLibrary:
 
         An ``expected_state`` that is not a code of ``state_field`` fails too,
         so a translated label can never pass by accident.
+
+        Example:
+        | `Odoo Record State Should Be`    sale.order    ${quotation_id}    draft
         """
         codes = self.get_field_selection_values(model, state_field)
         if expected_state not in codes:
@@ -225,6 +292,9 @@ class OdooFxLibrary:
         ``expected_status`` is ``draft``, ``sent``, ``sale``, ``done`` or
         ``cancel``, never the translated label. ``quotation`` is the order
         reference (``S00042``) or its database id.
+
+        Example:
+        | `Assert Quotation Status Is`    draft    ${quotation_id}
         """
         if quotation is None:
             raise OdooRpcError("No quotation identified: pass quotation=<reference or id>")
@@ -237,7 +307,11 @@ class OdooFxLibrary:
 
         Fails unless the identifier names exactly one record of ``expected_model``.
         An external id does not depend on the language of the instance, unlike a
-        product name or a menu label."""
+        product name or a menu label.
+
+        Example:
+        | ${product_id}=    `Resolve Odoo External Id`    product.product_product_1    product.product
+        """
         module, separator, name = external_id.partition(".")
         if not (module and separator and name):
             raise OdooRpcError(f"{external_id!r} is not a module.name external id")
@@ -256,7 +330,12 @@ class OdooFxLibrary:
     def get_odoo_config_parameter(self, key: str) -> str:
         """Return a system parameter such as ``web.base.url`` (readable by an administrator only).
 
-        The instance's own base address names the address a suite was pointed at."""
+        The instance's own base address names the address a suite was pointed at.
+
+        Example:
+        | ${base}=    `Get Odoo Config Parameter`    web.base.url
+        | Should Be Equal    ${base}    http://127.0.0.1:8016
+        """
         rows = self._require_channel().search_read(
             "ir.config_parameter", [["key", "=", key]], fields=["value"])
         if len(rows) != 1:
@@ -274,13 +353,23 @@ class OdooFxLibrary:
         """Fail unless the user belongs to the group named by its external id.
 
         The field holding a user's groups is named after the server series
-        (``groups_id`` before Odoo 19, ``group_ids`` from 19)."""
+        (``groups_id`` before Odoo 19, ``group_ids`` from 19).
+
+        Example:
+        | ${info}=    `Get Odoo Connection Info`
+        | `Odoo User Should Be In Group`    ${info}[uid]    sales_team.group_sale_salesman
+        """
         if not self._user_in_group(user_id, group_external_id):
             raise AssertionError(f"User {user_id} is not in group {group_external_id}")
 
     @keyword("Odoo User Should Not Be In Group")
     def odoo_user_should_not_be_in_group(self, user_id: int, group_external_id: str) -> None:
-        """Fail when the user belongs to the group named by its external id (a precondition)."""
+        """Fail when the user belongs to the group named by its external id (a precondition).
+
+        Example:
+        | ${info}=    `Get Odoo Connection Info`
+        | `Odoo User Should Not Be In Group`    ${info}[uid]    sale.group_auto_done_setting
+        """
         if self._user_in_group(user_id, group_external_id):
             raise AssertionError(f"User {user_id} is in group {group_external_id}")
 
@@ -289,7 +378,12 @@ class OdooFxLibrary:
                         fields: Optional[list] = None, context: Optional[dict] = None) -> dict:
         """Return the named ``fields`` (all when empty) of one identified record.
 
-        ``record`` is a database id or a domain that must match exactly one record."""
+        ``record`` is a database id or a domain that must match exactly one record.
+
+        Example:
+        | ${quotation}=    `Get Odoo Record`    sale.order    ${quotation_id}    fields=${{["partner_id"]}}
+        | Should Be Equal As Integers    ${quotation}[partner_id][0]    ${client_id}
+        """
         domain = [["id", "=", record]] if isinstance(record, int) else record
         found = self._require_channel().search_read(
             model, domain, fields=fields, limit=2, context=context)
@@ -300,12 +394,21 @@ class OdooFxLibrary:
 
     @keyword("Odoo Record Exists")
     def odoo_record_exists(self, model: str, record_id: int) -> bool:
-        """Return whether the record with this database id exists (archived ones count)."""
+        """Return whether the record with this database id exists (archived ones count).
+
+        Example:
+        | ${present}=    `Odoo Record Exists`    sale.order    ${quotation_id}
+        | Should Be True    ${present}
+        """
         return bool(self._record_count(model, record_id))
 
     @keyword("Odoo Record Should Exist")
     def odoo_record_should_exist(self, model: str, record_id: int) -> None:
-        """Fail unless the record with this database id exists (archived ones count)."""
+        """Fail unless the record with this database id exists (archived ones count).
+
+        Example:
+        | `Odoo Record Should Exist`    sale.order    ${quotation_id}
+        """
         if not self._record_count(model, record_id):
             raise AssertionError(f"{model} {record_id} does not exist")
 
@@ -314,7 +417,12 @@ class OdooFxLibrary:
         """Fail if the record with this database id still exists (archived ones count).
 
         A removal is proven on the identified record, never on a count that
-        went back to its previous value."""
+        went back to its previous value.
+
+        Example:
+        | `Delete Odoo Record`    res.partner    ${client_id}
+        | `Odoo Record Should Not Exist`    res.partner    ${client_id}
+        """
         if self._record_count(model, record_id):
             raise AssertionError(f"{model} {record_id} still exists")
 
@@ -327,7 +435,12 @@ class OdooFxLibrary:
         """Return a unique label such as ``ODOOFX-20260930T203012-9f3a1c``.
 
         Put it in a free-text field of every record a run creates, so the run's
-        data can be identified, found again and removed."""
+        data can be identified, found again and removed.
+
+        Example:
+        | ${marker}=    `New Odoo Run Marker`    prefix=ODOOFX-DEVIS16
+        | Should Start With    ${marker}    ODOOFX-DEVIS16-
+        """
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         return f"{prefix}-{stamp}-{uuid.uuid4().hex[:6]}"
 
@@ -367,7 +480,13 @@ class OdooFxLibrary:
         """Create one record of ``model`` from ``values`` and return its database id.
 
         Needs ``allow_write``. Put a `New Odoo Run Marker` in a free-text field
-        so the record can be identified and removed."""
+        so the record can be identified and removed.
+
+        Example:
+        | ${marker}=    `New Odoo Run Marker`    prefix=ODOOFX-DEVIS16
+        | &{values}=    Create Dictionary    name=${marker} client    comment=${marker}    is_company=${TRUE}
+        | ${client_id}=    `Create Odoo Record`    res.partner    ${values}
+        """
         created = self._journaled_write(
             "create", model, [], list(values),
             lambda channel: channel.create(model, values))
@@ -376,7 +495,12 @@ class OdooFxLibrary:
 
     @keyword("Update Odoo Record")
     def update_odoo_record(self, model: str, record_id: Union[int, list], values: dict) -> bool:
-        """Write ``values`` on the identified record(s). Needs ``allow_write``."""
+        """Write ``values`` on the identified record(s). Needs ``allow_write``.
+
+        Example:
+        | &{values}=    Create Dictionary    date_order=2000-01-01 00:00:00
+        | `Update Odoo Record`    sale.order    ${quotation_id}    ${values}
+        """
         ids = self._as_ids(record_id)
         return self._journaled_write(
             "update", model, ids, list(values),
@@ -388,7 +512,12 @@ class OdooFxLibrary:
 
         Odoo refuses what the application itself refuses (a confirmed sales
         order, for instance): the refusal is raised, the record stays, and the
-        way back goes through the model's own action (cancel) first."""
+        way back goes through the model's own action (cancel) first.
+
+        Example:
+        | `Delete Odoo Record`    sale.order    ${quotation_id}
+        | `Odoo Record Should Not Exist`    sale.order    ${quotation_id}
+        """
         ids = self._as_ids(record_id)
         return self._journaled_write(
             "delete", model, ids, [], lambda channel: channel.unlink(model, ids))
@@ -403,7 +532,14 @@ class OdooFxLibrary:
         ``context``, a dict that becomes the call's context (for instance
         ``context=${{{"disable_cancel_warning": True}}}``). Returns what the
         method returns: a method that opens a wizard returns its action and
-        does not do the work, check the state afterwards."""
+        does not do the work, check the state afterwards.
+
+        Example:
+        | `Call Odoo Record Method`    sale.order    ${quotation_id}    action_confirm
+        | `Call Odoo Record Method`    sale.order    ${quotation_id}    action_cancel
+        | ...    context=${{{"disable_cancel_warning": True}}}
+        | `Odoo Record State Should Be`    sale.order    ${quotation_id}    cancel
+        """
         ids = self._as_ids(record_id)
         context = kwargs.pop("context", None)
         return self._journaled_write(
@@ -419,7 +555,14 @@ class OdooFxLibrary:
         ``ids`` and the field names written, never their values. A ``planned``
         or ``unknown`` entry is reconciled by reading the record, never sent
         again. The journal is that of the whole process: take the last ``seq``
-        before a test (``${since}``) to judge only what the test wrote."""
+        before a test (``${since}``) to judge only what the test wrote.
+
+        Example:
+        | ${journal}=    `Get Odoo Write Journal`
+        | ${mark}=    Get Length    ${journal}
+        | ${written}=    `Get Odoo Write Journal`    since=${mark}
+        | Should Be Empty    ${written}
+        """
         return [dict(entry) for entry in self._journal if entry["seq"] > since]
 
     @keyword("Odoo Write Journal Should Hold No Unknown Outcome")
@@ -428,7 +571,12 @@ class OdooFxLibrary:
 
         Those two phases mean a write whose effect is not known: read the record
         instead of trusting the run. ``since`` (the last ``seq`` read before the
-        test) keeps an earlier test's entry from failing the ones that follow."""
+        test) keeps an earlier test's entry from failing the ones that follow.
+
+        Example:
+        | `Call Odoo Record Method`    sale.order    ${quotation_id}    action_confirm
+        | `Odoo Write Journal Should Hold No Unknown Outcome`    since=${mark}
+        """
         doubtful = [entry for entry in self.get_odoo_write_journal(since)
                     if entry["phase"] in ("planned", "unknown")]
         if doubtful:
@@ -443,7 +591,16 @@ class OdooFxLibrary:
         ``seq`` is the entry's number, ``reason`` says what the reading showed (for
         instance ``state read back as sent``). The entry becomes ``reconciled`` and
         no longer fails `Odoo Write Journal Should Hold No Unknown Outcome`. A write
-        is never sent again: the reading IS the reconciliation."""
+        is never sent again: the reading IS the reconciliation.
+
+        Example:
+        | Run Keyword And Expect Error    GLOB:*None result cannot be sent*
+        | ...    `Call Odoo Record Method`    sale.order    ${quotation_id}    action_quotation_sent
+        | `Odoo Record State Should Be`    sale.order    ${quotation_id}    sent
+        | ${written}=    `Get Odoo Write Journal`    since=${mark}
+        | `Reconcile Odoo Write`    ${written}[-1][seq]    state of quotation ${quotation_id} read back as sent
+        | `Odoo Last Write Should Be`    reconciled
+        """
         entry = next((e for e in self._journal if e["seq"] == seq), None)
         if entry is None:
             raise OdooRpcError(f"No journal entry {seq}")
@@ -458,17 +615,19 @@ class OdooFxLibrary:
 
     @keyword("Odoo Last Write Should Be")
     def odoo_last_write_should_be(self, phase: str) -> None:
-        """Fail unless the last journaled write is in ``phase`` (``done``, ``failed``...)."""
+        """Fail unless the last journaled write is in ``phase`` (``done``, ``failed``...).
+
+        Example:
+        | &{values}=    Create Dictionary    client_order_ref=ODOOFX-DEVIS16-no-client
+        | Run Keyword And Expect Error    GLOB:*sale.order.create failed*
+        | ...    `Create Odoo Record`    sale.order    ${values}
+        | `Odoo Last Write Should Be`    failed
+        """
         if not self._journal:
             raise AssertionError("The write journal is empty")
         actual = self._journal[-1]["phase"]
         if actual != phase:
             raise AssertionError(f"The last write is {actual!r}, expected {phase!r}")
-
-    @keyword("Navigate To Menu")
-    def navigate_to_menu(self, menu_path: str) -> None:
-        """Skeleton: does nothing but warn. The web channel is not implemented yet."""
-        logger.warn(f"Navigate To Menu is a skeleton and did not navigate to: {menu_path}")
 
     @keyword("Create New Quotation")
     def create_new_quotation(self) -> None:
@@ -477,7 +636,12 @@ class OdooFxLibrary:
 
     @keyword("Disconnect From Odoo")
     def disconnect_from_odoo(self) -> None:
-        """Close the current connection, if any."""
+        """Close the current connection, if any.
+
+        Example:
+        | `Disconnect From Odoo`
+        | Run Keyword And Expect Error    GLOB:*Not connected*    `Get Odoo Connection Info`
+        """
         if self._channel is not None:
             self._channel.close()
         self._channel = None

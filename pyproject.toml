@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robotframework-odoofx"
-version = "0.1.0"
-description = "ODOOFX: Robot Framework library for testing Odoo over its external API (XML-RPC up to Odoo 18, JSON-2 from Odoo 19), with opt-in journaled writes. Web channel in bootstrap."
+version = "0.2.0"
+description = "ODOOFX: Robot Framework library for testing Odoo through its web client (Browser library) and its external API (XML-RPC up to Odoo 18, JSON-2 from Odoo 19), with opt-in journaled writes."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -13,7 +13,7 @@ license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Cyril Montiel", email = "cyril@montiel.me" }]
 keywords = [
     "robotframework", "robot-framework", "test-automation", "testing", "qa",
-    "odoo", "erp", "orm", "rpc", "xml-rpc", "json-2",
+    "odoo", "erp", "orm", "rpc", "xml-rpc", "json-2", "web-testing", "playwright",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
