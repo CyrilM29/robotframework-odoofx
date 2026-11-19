@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robotframework-odoofx"
-version = "0.2.0"
+version = "0.3.0"
 description = "ODOOFX: Robot Framework library for testing Odoo through its web client (Browser library) and its external API (XML-RPC up to Odoo 18, JSON-2 from Odoo 19), with opt-in journaled writes."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,8 +40,11 @@ dependencies = [
 
 [project.optional-dependencies]
 web = ["robotframework-browser>=20.0,<21"]
+ntlm = ["requests_ntlm>=1.1"]
+pdf = ["pypdf>=4.0"]
 all = [
     "robotframework-odoofx[web]",
+    "robotframework-odoofx[pdf]",
 ]
 
 [project.urls]

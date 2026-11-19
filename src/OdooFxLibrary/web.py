@@ -49,6 +49,9 @@ class OdooWebKeywords:
         if self._browser("Get Element Count", wc.ACTION):
             self._browser("Evaluate JavaScript", wc.ACTION, _MARK_STALE)
 
+    def _unmark_current_view(self) -> None:
+        self._browser("Evaluate JavaScript", wc.ACTION, f"(element) => element.removeAttribute('{_STALE}')")
+
     def _wait_for_new_view(self) -> None:
         self._browser("Wait For Elements State", _NEW_VIEW, "visible")
         classes = self._optional_attribute(_NEW_VIEW, "class") or ""
@@ -59,7 +62,9 @@ class OdooWebKeywords:
         if self._browser("Get Element Count", wc.FORM_STATE) != 1:
             # A form view whose state cannot be read is held unsaved: leaving it may write.
             return bool(self._browser("Get Element Count", wc.FORM_VIEW))
-        if self._browser("Get Element Count", wc.FORM_DIRTY):
+        # What the library typed since the last save or discard counts: Odoo 16 marks a field changed only once
+        # its onchange answered (measured on odoo16, 2026-11-16), and would save the typing on leaving the form.
+        if self._web_filled or self._browser("Get Element Count", wc.FORM_DIRTY):
             return True
         return wc.parse_web_location(self._browser("Get Url"))["record_id"] is None
 
@@ -118,7 +123,7 @@ class OdooWebKeywords:
         | Should Be Equal    ${session}[database]    odoo16
         | Should Be True    ${session}[allow_write]
         """
-        self._web_writes = False
+        self._web_writes, self._web_filled = False, set()
         secret = password if isinstance(password, Secret) else Secret(str(password))
         if not secret.value:
             raise OdooRpcError("Empty password")
@@ -271,18 +276,22 @@ class OdooWebKeywords:
                 "record_id": location["record_id"]}
 
     def _model_of_action(self, action: Optional[str]) -> str:
+        return self._read_window_action(action, ["res_model"])["res_model"]
+
+    def _read_window_action(self, action: Optional[str], fields: list) -> dict:
+        """The ``fields`` of the window action the address names (see `action_lookup`)."""
         if not action:
             raise OdooRpcError("The address names no action")
         model, domain = wc.action_lookup(action)
-        found = self._call_web_session(model, "search_read", [], {
-            "domain": domain, "fields": ["res_model"] if model != "ir.model.data" else ["res_id"],
-            "limit": 1})
-        if found and model == "ir.model.data":
-            found = self._call_web_session("ir.actions.act_window", "search_read", [], {
-                "domain": [["id", "=", found[0]["res_id"]]], "fields": ["res_model"], "limit": 1})
+        if model == "ir.model.data":
+            found = self._call_web_session(model, "search_read", [], {
+                "domain": domain, "fields": ["res_id"], "limit": 1})
+            domain = [["id", "=", found[0]["res_id"] if found else 0]]
+        found = self._call_web_session("ir.actions.act_window", "search_read", [], {
+            "domain": domain, "fields": fields, "limit": 1})
         if not found:
             raise OdooRpcError(f"No window action matches the address segment {action!r}")
-        return found[0]["res_model"]
+        return found[0]
 
     @keyword("Count Odoo Web View Records")
     def count_odoo_web_view_records(self) -> int:

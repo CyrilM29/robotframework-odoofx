@@ -19,9 +19,11 @@ actually test. It targets Odoo Community and Enterprise, and is **proven live
 on Odoo 16 and Odoo 19 Community** (it is designed for Odoo 14 and later; 14,
 15, 17 and 18 are not measured yet).
 
-> **Status: alpha.** Both channels work and are proven live on Odoo 16 and 19.
-> Not covered yet: buttons that open a wizard, section and note lines, line
-> deletion. Signatures may still change before 1.0.
+> **Status: alpha.** Both channels work and are proven live on Odoo 16 and 19,
+> with an HTTP channel (the keywords of RequestsLibrary, absorbed) and the report
+> PDFs Odoo prints. Not covered yet: the kanban, calendar, pivot and graph views,
+> the chatter, the mass actions of a list, Odoo's legacy `/jsonrpc` route.
+> Signatures may still change before 1.0.
 
 ## Install
 
@@ -29,7 +31,7 @@ Requirements: Python 3.10 or later, Robot Framework 7.4 or later, and an Odoo
 instance reachable over HTTP. The RPC channel needs nothing more. The `web`
 extra (`pip install "robotframework-odoofx[web]"`, then `rfbrowser init` once
 for the Playwright browsers) brings the Browser library the web channel is
-built on; `all` installs every extra.
+built on; the `pdf` extra (`pypdf`) reads the text of a report; `all` installs every extra.
 
 Keyword documentation:
 [cyrilm29.github.io/robotframework-odoofx](https://cyrilm29.github.io/robotframework-odoofx/).
@@ -149,6 +151,37 @@ variable keeps them out of the logs) or through the environment.
 | `Get Odoo Module State`, `Odoo Module Should Be Installed` | The state code of a module; fail unless installed |
 | `Call Odoo Model Method` | Call a method that needs no record (`name_search`, `search_count`...); a method that may write needs `allow_write` and is journaled |
 
+**Session context** (RPC channel: Odoo applies no preference of the user to an RPC call):
+
+| Keyword | Purpose |
+| --- | --- |
+| `Set Odoo Session Context` | A language, time zone or companies sent with every RPC call of the connection, under the context a keyword passes; an inactive language, an unknown time zone or a company the user does not have is refused at once |
+| `Get Odoo Session Context`, `Clear Odoo Session Context` | Read or empty the session context (a new connection starts empty) |
+| `Get Odoo User Context` | The preferences of the connected user as Odoo gives them (`lang`, `tz`) |
+
+**HTTP** (the session and request keywords of RequestsLibrary, absorbed under their names and arguments, the secrets they recognize masked in the log):
+
+| Keyword | Purpose |
+| --- | --- |
+| `Create Session`, `Update Session`, `Session Exists`, `Delete All Sessions` | Open an HTTP session towards a server under an alias, merge headers or cookies into it, find it, close them all |
+| `Create Custom Session`, `Create Digest Session`, `Create Client Cert Session`, `Create Ntlm Session` | Open a session authenticated by any requests authentication, HTTP Digest, a client certificate, or NTLM (optional extra `ntlm`) |
+| `GET On Session`, `POST On Session`, `PUT On Session`, `PATCH On Session`, `DELETE On Session`, `HEAD On Session`, `OPTIONS On Session` | Send a request on a session; without `expected_status` a 4xx or 5xx fails, as in RequestsLibrary; HEAD does not follow a redirect, the other verbs do |
+| `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` | Send a request to a full URL without a session; unlike RequestsLibrary, no cookie nor timeout of another session goes with it |
+| `Status Should Be`, `Request Should Be Successful`, `Get File For Streaming Upload` | Assert the status of the response given, or of the last one (a failed response given is judged, unlike RequestsLibrary); open a file to stream as a request body |
+| `Create Odoo Http Session` | An authenticated Odoo web session on the proven target, proven by its database, series and user, for the routes a logged user reaches (a report PDF) |
+
+A write on Odoo through these keywords (a call of its RPC routes or a website form whose method is not a read) is refused before it is sent unless `Connect To Odoo` proved that target and opened it with `allow_write=${TRUE}`; it then enters the write journal and is sent once.
+
+Coming from RequestsLibrary? The [migration guide](docs/migrating-from-requestslibrary.md) gives each deliberate change, its effect on a suite and its remedy.
+
+**Reports** (the PDF Odoo prints, through a web session of `Create Odoo Http Session`; its text needs the `pdf` extra):
+
+| Keyword | Purpose |
+| --- | --- |
+| `Get Odoo Report Pdf` | The PDF of a report action on records, by Odoo's report route without following a redirect, a redirect, another status or another type named; refused before any request when the action would save the PDF as an attachment, unless accepted on a writing connection |
+| `Get Pdf Text`, `Pdf Should Contain`, `Pdf Should Not Contain` | The text of the PDF, normalized on both sides (Unicode spaces, line breaks, a reference the template wrapped at its hyphen), and a value asserted in it or absent from it; a PDF without a text layer fails saying so |
+| `Get Odoo Formatted Amount` | An amount as Odoo writes it in a document of a language and a currency, read from `res.lang` and `res.currency` |
+
 **Web client: session, navigation and reads** (built on the Browser library,
 which opens the browser, the context and the page):
 
@@ -160,7 +193,8 @@ which opens the browser, the context and the page):
 | `Navigate To Menu` | Open an application, then its menus, by external ids (`sale.sale_menu_root`), never by label; waits for the view that replaces the one shown |
 | `Get Odoo Web View`, `Get Odoo Web Current App` | The view shown (model, view type, action, record id) and the application of the menu bar |
 | `Count Odoo Web View Records`, `Get Odoo Web Pager Total`, `Count Odoo Web Search Facets` | What the list or kanban shows: records (ghost cards excluded), the pager's total, the search facets |
-| `Open Odoo Web Record`, `Get Odoo Web List Cell Text`, `Get Odoo Web Breadcrumb Depth`, `Go Back Through Odoo Web Breadcrumb` | Open a shown record in its form (by the cell of a named field), read a list cell, read and walk back the breadcrumb |
+| `Search Odoo Web View`, `Select Odoo Web Search Filter`, `Remove Odoo Web Search Facet`, `Switch Odoo Web View` | Search a list through its search bar: a text on a field, or a filter, of the search view, named by its technical name (found at its place in the view's arch, the domain the client sends checked against the arch); remove a facet; switch the action's view (list, kanban). Each waits for the list Odoo shows, returns the count it answered, and writes nothing |
+| `Open Odoo Web Record`, `Open Odoo Web Record By Id`, `Get Odoo Web List Cell Text`, `Get Odoo Web Breadcrumb Depth`, `Go Back Through Odoo Web Breadcrumb` | Open a shown record in its form (by the cell of a named field), or any record by its model and id (one a suite created over RPC), read a list cell, read and walk back the breadcrumb |
 | `Get Odoo Web Statusbar Value`, `Odoo Web Form Should Be Saved` | The technical code of the form's current step; no pending change |
 | `Count Odoo Records Through Web Session`, `Search Read Odoo Records Through Web Session` | Reads with the page's session cookie, on the same route from Odoo 16 to 19 |
 | `Log Out Of Odoo Web Client` | Log out through the user menu |
@@ -171,10 +205,13 @@ are journaled):
 | Keyword | Purpose |
 | --- | --- |
 | `Open New Odoo Web Form`, `Select Odoo Web Form Tab` | Open the form of a new record from a list or kanban; show a notebook page by its name |
-| `Fill Odoo Web Field`, `Get Odoo Web Field Value` | Enter a value and read it back on the screen at once: text, dates (given as ISO, typed in the user's format), radio option and selection by code, checkbox, many2one and tags by exact name or by id; read what the form shows |
+| `Fill Odoo Web Field`, `Get Odoo Web Field Value` | Enter a value and read it back on the screen at once: text, numbers and dates (given as `2.5` and ISO, typed in the user's format), radio option and selection by code, checkbox, many2one and tags by exact name or by id; read what the form shows, a number field as a number |
 | `Save Odoo Web Record`, `Discard Odoo Web Changes`, `Get Odoo Web Invalid Fields`, `Odoo Web Form Is Unsaved` | Save and get the record id, or a refusal naming its cause; drop pending changes; the fields marked invalid; whether the form holds unsaved changes |
-| `Add Odoo Web Line`, `Fill Odoo Web Line Field`, `Get Odoo Web Lines` | Add a line to a one2many field (the lines of a sales order), fill a field of the line in edition, read the lines once shown as stored |
-| `Click Odoo Web Form Button` | Press a button that calls a method of the record (`action_confirm`), by its technical name; waits until Odoo answered and reloaded the record; needs `allow_write`, journaled |
+| `Add Odoo Web Line`, `Fill Odoo Web Line Field`, `Get Odoo Web Lines`, `Get Odoo Web Line Field Value`, `Delete Odoo Web Line` | Add a line to a one2many field (the lines of a sales order), a section or a note by its `display_type`; fill a field of the line in edition (the text of a section or a note on Odoo 16 and 19 alike); read the lines once shown as stored, with their type; read one field of a line, a number as a number in the user's format; delete a line by its position |
+| `Delete Odoo Web Section` | Delete a section of a list of lines with the lines Odoo attaches to it, by its menu as Odoo 19 does (a subsection up to the next section or subsection); refused before any click on Odoo 16, whose delete button of a section removes its row alone |
+| `Click Odoo Web Form Button` | Press a button that calls a method of the record (`action_confirm`), by its technical name, waiting until Odoo answered and reloaded the record (needs `allow_write`, journaled); or a button that opens a window action, by the action's external id, without writing |
+| `Archive Odoo Web Record`, `Unarchive Odoo Web Record`, `Delete Odoo Web Record`, `Odoo Web Confirmation Is Open` | Archive, unarchive or delete the record of the form through its Actions menu, the entry told by its icon (Odoo 19) or by the place the code of Odoo gives it (Odoo 16), never by its label; Odoo's question accepted, or refused with `confirm=${FALSE}`; journaled, Odoo's refusal reported with the class of its exception; whether a question of Odoo is open |
+| `Odoo Web Dialog Is Open`, `Fill Odoo Web Dialog Field`, `Get Odoo Web Dialog Field Value`, `Click Odoo Web Dialog Button`, `Close Odoo Web Dialog` | Work in the dialog a button opened (a wizard): whether one is shown, enter and read its fields on the wizard's model, press a button of its footer by its technical name (and its id when several share it; needs `allow_write`, journaled) and get the view it opens, close it without writing |
 
 `Create New Quotation` is a skeleton that only warns: do not rely on it.
 

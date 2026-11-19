@@ -74,13 +74,15 @@
     <code>OdooFxLibrary</code> brings Odoo test automation to Robot Framework through
     two channels under one keyword vocabulary: the web client, driven through the
     Browser library, and the external API (XML-RPC up to Odoo 18, JSON-2 from
-    Odoo 19), with ORM introspection and opt-in, journaled writes.
+    Odoo 19), with ORM introspection and opt-in, journaled writes, an HTTP
+    channel and the report PDFs Odoo prints.
   </p>
   <p class="note">
     Alpha. Both channels work and are proven live on Odoo 16 and Odoo 19
     Community. Writes are off unless the connection or the web login opts in,
-    and every write is journaled. Not covered yet: buttons that open a wizard,
-    section and note lines, line deletion. <code>Create New Quotation</code> is
+    and every write is journaled. Not covered yet: the kanban, calendar, pivot
+    and graph views, the chatter, the mass actions of a list, Odoo's legacy
+    <code>/jsonrpc</code> route. <code>Create New Quotation</code> is
     a skeleton that only warns.
   </p>
 
@@ -89,9 +91,10 @@
     <a class="card" href="OdooFxLibrary.html">
       <h3>OdooFxLibrary</h3>
       <p class="channel">Web client and RPC channels</p>
-      <p>Prove the target, log in and navigate by external id, enter and save
-      forms, count and read records, compare state codes, introspect the ORM,
-      write with a journal.</p>
+      <p>Prove the target, log in and navigate by external id, search a list,
+      enter and save forms, work in wizards, count and read records, compare
+      state codes, introspect the ORM, write with a journal, call Odoo over
+      HTTP, read and assert the report PDFs.</p>
     </a>
   </div>
 

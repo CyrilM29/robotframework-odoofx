@@ -91,10 +91,6 @@ def plain(value: Any) -> Any:
     return value
 
 
-def _context(context: Optional[dict]) -> dict:
-    return plain(context) if context else {}
-
-
 #: Odoo's XML-RPC fault codes that stand for an exception family: the fault string
 #: is then the bare message, without the exception's name. Any other exception comes
 #: with its traceback, whose last line names it.
@@ -147,12 +143,26 @@ def _write_proxy(url: str) -> xmlrpc.client.ServerProxy:
     return xmlrpc.client.ServerProxy(url, transport=_send_once(base), allow_none=True)
 
 
-class XmlRpcChannel:
+class _Channel:
+    """What both channels share: the session context sent with every call.
+
+    Odoo applies no preference of the user to an RPC call (no language, every
+    company of the user), so a connection carries its own context. A call's
+    ``context`` is merged over it, key by key; ``session=False`` leaves it out."""
+
+    session_context: dict
+
+    def _context(self, context: Optional[dict], session: bool = True) -> dict:
+        return {**(self.session_context if session else {}), **(plain(context) if context else {})}
+
+
+class XmlRpcChannel(_Channel):
     """``execute_kw`` over ``/xmlrpc/2``. Deprecated by Odoo 19, removal announced for 22."""
 
     name = "xmlrpc"
 
     def __init__(self, url: str, database: str, login: str, password: str):
+        self.session_context = {}
         self._database = database
         self._password = password
         try:
@@ -189,13 +199,14 @@ class XmlRpcChannel:
             raise OdooRpcError(f"{model}.{method} unreachable: {compact(exc)}",
                                unknown_outcome=True) from None
 
-    def search_count(self, model: str, domain: list, context: Optional[dict] = None) -> int:
-        return self._call(model, "search_count", [domain], {"context": _context(context)})
+    def search_count(self, model: str, domain: list, context: Optional[dict] = None,
+                     session: bool = True) -> int:
+        return self._call(model, "search_count", [domain], {"context": self._context(context, session)})
 
     def search_read(self, model: str, domain: list, fields: Optional[list] = None,
                     limit: int = 0, offset: int = 0, order: str = "",
-                    context: Optional[dict] = None) -> list:
-        kwargs: dict = {"context": _context(context)}
+                    context: Optional[dict] = None, session: bool = True) -> list:
+        kwargs: dict = {"context": self._context(context, session)}
         if fields:
             kwargs["fields"] = fields
         if limit:
@@ -207,32 +218,32 @@ class XmlRpcChannel:
         return self._call(model, "search_read", [domain], kwargs)
 
     def fields_get(self, model: str, attributes: Optional[list] = None,
-                   context: Optional[dict] = None) -> dict:
-        kwargs: dict = {"context": _context(context)}
+                   context: Optional[dict] = None, session: bool = True) -> dict:
+        kwargs: dict = {"context": self._context(context, session)}
         if attributes:
             kwargs["attributes"] = attributes
         return self._call(model, "fields_get", [], kwargs)
 
     def create(self, model: str, values: dict, context: Optional[dict] = None) -> int:
-        return self._call(model, "create", [values], {"context": _context(context)}, write=True)
+        return self._call(model, "create", [values], {"context": self._context(context)}, write=True)
 
     def write(self, model: str, ids: list, values: dict, context: Optional[dict] = None) -> bool:
-        return self._call(model, "write", [ids, values], {"context": _context(context)},
+        return self._call(model, "write", [ids, values], {"context": self._context(context)},
                           write=True)
 
     def unlink(self, model: str, ids: list, context: Optional[dict] = None) -> bool:
-        return self._call(model, "unlink", [ids], {"context": _context(context)}, write=True)
+        return self._call(model, "unlink", [ids], {"context": self._context(context)}, write=True)
 
     def call(self, model: str, method: str, ids: list, kwargs: Optional[dict] = None,
              context: Optional[dict] = None) -> Any:
-        return self._call(model, method, [ids], {**(kwargs or {}), "context": _context(context)},
+        return self._call(model, method, [ids], {**(kwargs or {}), "context": self._context(context)},
                           write=True)
 
     def call_model(self, model: str, method: str, kwargs: Optional[dict] = None,
                    context: Optional[dict] = None, write: bool = False) -> Any:
         # No positional argument at all: a list of ids would land on the method's
         # first parameter (name_search received it as its name).
-        return self._call(model, method, [], {**(kwargs or {}), "context": _context(context)},
+        return self._call(model, method, [], {**(kwargs or {}), "context": self._context(context)},
                           write=write)
 
     def close(self) -> None:
@@ -240,7 +251,7 @@ class XmlRpcChannel:
         self._object_once("close")()
 
 
-class Json2Channel:
+class Json2Channel(_Channel):
     """``POST /json/2/<model>/<method>`` with a ``Bearer`` API key (Odoo 19 and later).
 
     Arguments go by name; the answer is the method's return value, errors are
@@ -249,6 +260,7 @@ class Json2Channel:
     name = "json2"
 
     def __init__(self, url: str, database: str, api_key: str):
+        self.session_context = {}
         self._url = url
         self._database = database
         self._session = requests.Session()
@@ -283,14 +295,15 @@ class Json2Channel:
         except (ValueError, AttributeError):
             return compact(reply.reason or reply.text)
 
-    def search_count(self, model: str, domain: list, context: Optional[dict] = None) -> int:
+    def search_count(self, model: str, domain: list, context: Optional[dict] = None,
+                     session: bool = True) -> int:
         return self._call(model, "search_count",
-                          {"domain": domain, "context": _context(context)})
+                          {"domain": domain, "context": self._context(context, session)})
 
     def search_read(self, model: str, domain: list, fields: Optional[list] = None,
                     limit: int = 0, offset: int = 0, order: str = "",
-                    context: Optional[dict] = None) -> list:
-        payload: dict = {"domain": domain, "context": _context(context)}
+                    context: Optional[dict] = None, session: bool = True) -> list:
+        payload: dict = {"domain": domain, "context": self._context(context, session)}
         if fields:
             payload["fields"] = fields
         if limit:
@@ -302,32 +315,32 @@ class Json2Channel:
         return self._call(model, "search_read", payload)
 
     def fields_get(self, model: str, attributes: Optional[list] = None,
-                   context: Optional[dict] = None) -> dict:
-        payload: dict = {"context": _context(context)}
+                   context: Optional[dict] = None, session: bool = True) -> dict:
+        payload: dict = {"context": self._context(context, session)}
         if attributes:
             payload["attributes"] = attributes
         return self._call(model, "fields_get", payload)
 
     def create(self, model: str, values: dict, context: Optional[dict] = None) -> int:
         created = self._call(model, "create",
-                             {"vals_list": [values], "context": _context(context)})
+                             {"vals_list": [values], "context": self._context(context)})
         return created[0] if isinstance(created, list) else created
 
     def write(self, model: str, ids: list, values: dict, context: Optional[dict] = None) -> bool:
         return self._call(model, "write",
-                          {"ids": ids, "vals": values, "context": _context(context)})
+                          {"ids": ids, "vals": values, "context": self._context(context)})
 
     def unlink(self, model: str, ids: list, context: Optional[dict] = None) -> bool:
-        return self._call(model, "unlink", {"ids": ids, "context": _context(context)})
+        return self._call(model, "unlink", {"ids": ids, "context": self._context(context)})
 
     def call(self, model: str, method: str, ids: list, kwargs: Optional[dict] = None,
              context: Optional[dict] = None) -> Any:
         return self._call(model, method,
-                          {**(kwargs or {}), "ids": ids, "context": _context(context)})
+                          {**(kwargs or {}), "ids": ids, "context": self._context(context)})
 
     def call_model(self, model: str, method: str, kwargs: Optional[dict] = None,
                    context: Optional[dict] = None, write: bool = False) -> Any:
-        return self._call(model, method, {**(kwargs or {}), "context": _context(context)})
+        return self._call(model, method, {**(kwargs or {}), "context": self._context(context)})
 
     def close(self) -> None:
         self._session.close()

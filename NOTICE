@@ -7,8 +7,9 @@ Licensed under the Apache License, Version 2.0 (see LICENSE file).
 THIRD-PARTY COMPONENTS
 ================================================================================
 
-The robotframework-odoofx package contains no third-party code. It depends on
-the following projects, installed from PyPI under their own licenses:
+The robotframework-odoofx package contains code derived from one third-party
+project, listed under ABSORBED CODE below. It depends on the following
+projects, installed from PyPI under their own licenses:
 
 1. Robot Framework
    - Project: https://robotframework.org/
@@ -18,13 +19,57 @@ the following projects, installed from PyPI under their own licenses:
 2. Requests
    - Project: https://requests.readthedocs.io/
    - License: Apache License 2.0
-   - Used for: the JSON-2 channel (Odoo 19 and later)
+   - Used for: the JSON-2 channel (Odoo 19 and later) and the HTTP keywords
 
 3. Robot Framework Browser library (optional, `web` extra)
    - Project: https://github.com/MarketSquare/robotframework-browser
    - License: Apache License 2.0
    - Used for: the web channel, through Playwright
      (https://playwright.dev/, Apache License 2.0)
+
+4. pypdf (optional, `pdf` extra)
+   - Project: https://github.com/py-pdf/pypdf
+   - License: BSD 3-Clause License
+   - Used for: reading the text of a report PDF
+
+5. requests_ntlm (optional, `ntlm` extra)
+   - Project: https://github.com/requests/requests-ntlm
+   - License: ISC License
+   - Used for: the NTLM authenticated HTTP sessions
+
+================================================================================
+ABSORBED CODE
+================================================================================
+
+robotframework-requests (RequestsLibrary) 0.9.7
+   - Project: https://github.com/MarketSquare/robotframework-requests
+   - License: MIT License
+   - Absorbed: its session, request and log code is rewritten in
+     src/OdooFxLibrary/http_sessions.py, http_authenticated_sessions.py,
+     http_requests.py, http_requests_without_session.py,
+     http_status_assertions.py and http_log.py (each module names its
+     origin); the keyword names and their parameters
+     are kept, so that a suite written for RequestsLibrary keeps working.
+
+   Copyright (c) 2016 Bulkan Evcimen
+
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
 
 ================================================================================
 DESIGN LINEAGE

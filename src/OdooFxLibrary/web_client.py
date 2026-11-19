@@ -76,28 +76,59 @@ NEW_RECORD_SEGMENT = "new"
 LINE_ADD = ".o_field_x2many_list_row_add a"
 EDITED_LINE = "tr.o_selected_row"
 SHOWN_LINES = "tr.o_data_row"
+# Sections and notes (plans specs/devis_web_odoo16.md and _odoo19.md, DV-6): a row carries o_is_<display_type>
+# (o_is_false for a plain line); a deletable row its trash button, which Odoo 19 gives no section.
+LINE_DELETE = "td.o_list_record_remove button[name=delete]"
+# Odoo 19 gives a section and a subsection the menu of its row instead (plan specs/suppression_section_web_odoo19.md):
+# it opens outside the list, and its delete entry is told by its trash icon, never by its translated label.
+SECTION_MENU = "td.o_list_section_options button.dropdown-toggle"
+OPEN_MENU = ".o-overlay-container .o-dropdown--menu"
+SECTION_DELETE = f"{OPEN_MENU} .o-dropdown-item:has(i.fa-trash)"
+# Odoo 19 has no name widget on a section or a note: its text is typed in the product cell, whose
+# widget (account's ProductLabelSectionAndNoteField) edits the line's name.
+LINE_LABEL = ".o_field_product_label_section_and_note_cell"
+LINE_LABEL_FIELD = "name"
 # The answer of an object button; Playwright reads a bare path as a whole-URL glob.
 CALL_BUTTON_RESPONSE = "**/web/dataset/call_button**"
 # Odoo 16 and 19 mark with disabled="1" the buttons they disable for the time of a button's action, the reload
 # of the record included, then remove the mark: none left means the action is over.
 BUTTONS_SETTLED = ("() => !document.querySelector('.o_action_manager button[disabled=\"1\"], "
                    ".o-overlay-container button[disabled=\"1\"]')")
+# A dialog a button opened (plans specs/devis_web_odoo16.md and _odoo19.md, DV-8): the same on Odoo 16 and 19, its
+# form inside, the buttons of the wizard's footer in its modal footer, its close cross in its header.
+DIALOG = ".o_dialog .modal"
+DIALOG_FORM = f"{DIALOG} .o_form_view"
+DIALOG_CLOSE = f"{DIALOG}:has(.o_form_view) .modal-header .btn-close"
+DIALOG_FIELD_WAIT = "3s"
+# The message Odoo shows over a wizard it refused (an error): a dialog without a form, with its own close cross
+# (DV-10, measured on Odoo 16 and 19).
+DIALOG_MESSAGE = f"{DIALOG}:not(:has(.o_form_view))"
+DIALOG_MESSAGE_CLOSE = f"{DIALOG_MESSAGE} .modal-header .btn-close"
+DIALOG_MESSAGE_OK = f"{DIALOG_MESSAGE} .modal-footer button.btn-primary"
+ACTION_LOAD_RESPONSE = "**/web/action/load**"
 ISO_DATE = "%Y-%m-%d"
 # Odoo 19 shows a date as a button whose value attribute holds it in the user's format; a click opens the input.
 DATE_BUTTON = "button.o_input"
+# The date a widget shows, read in ONE call in the page: Odoo 19 replaces the input by its button after Tab, so
+# counting the input then reading it races (measured on 2026-10-26).
+SHOWN_DATE = ("(widget) => { const input = widget.querySelector(" + json.dumps(TEXT_INPUT) + "); "
+              "if (input) return input.value; const button = widget.querySelector(" + json.dumps(DATE_BUTTON) + "); "
+              "return button ? (button.getAttribute('value') || '') : ''; }")
 NATIVE_SELECT = "select"
 # Odoo 19 draws a selection as a menu of its own: an input opens it, its options float in a popover.
 SELECT_MENU_TOGGLER = "input.o_select_menu_toggler"
 SELECT_MENU = ".o_select_menu_menu"
 SELECT_MENU_ITEMS = f"{SELECT_MENU} .o_select_menu_item"
 CHECKBOX = 'input[type="checkbox"]'
+NUMBER_CLASSES = ("o_field_float", "o_field_integer", "o_field_monetary")
+INTEGER_CLASS = "o_field_integer"
 RECORD_IN_ADDRESS = ("() => /[#&]id=[0-9]+/.test(location.hash)"
                      " || /^[/]odoo[/].+[/][0-9]+$/.test(location.pathname)")
 
 SESSION_INFO_ROUTE = "/web/session/get_session_info"
 CALL_KW_ROUTE = "/web/dataset/call_kw/{model}/{method}"
 SESSION_EXPIRED = "odoo.http.SessionExpiredException"
-READ_METHODS = frozenset({"fields_get", "search_count", "search_read"})
+READ_METHODS = frozenset({"fields_get", "get_views", "search_count", "search_read"})
 
 VIEW_TYPES = ("list", "kanban", "form", "calendar", "pivot", "graph", "activity",
               "map", "gantt", "cohort", "hierarchy")
@@ -151,7 +182,7 @@ def form_tab(page: str) -> str:
 
 def widget_kind(classes: str) -> str:
     """How a field widget is filled, read on its classes: ``tags``, ``many2one``, ``radio``, ``date``,
-    ``selection``, ``boolean`` or ``text``."""
+    ``selection``, ``boolean``, ``number`` or ``text``."""
     tokens = str(classes).split()
     if "o_field_many2many_tags" in tokens:
         return "tags"
@@ -167,6 +198,8 @@ def widget_kind(classes: str) -> str:
         return "selection"
     if "o_field_boolean" in tokens:
         return "boolean"
+    if any(token in NUMBER_CLASSES for token in tokens):
+        return "number"
     return "text"
 
 
@@ -175,6 +208,48 @@ def form_button(name: str) -> str:
     if not re.match(r"^[A-Za-z0-9_.]+$", str(name)):
         raise OdooRpcError(f"Expected the technical name of a button such as action_confirm, got {name!r}")
     return f'{ACTION} :is(.o_form_statusbar, .o_statusbar_buttons, .oe_button_box) button[name="{name}"]'
+
+
+def dialog_field_widget(field: str) -> str:
+    """The widget of ``field`` (technical name) in the form of the dialog shown."""
+    return f'{DIALOG_FORM} .o_field_widget[name="{require_field_name(field)}"]'
+
+
+def dialog_button(name: str, button_id: Optional[str] = None) -> str:
+    """A button of the dialog's footer by its technical name, and by its id when several share the name."""
+    if not re.match(r"^[A-Za-z0-9_.]+$", str(name)):
+        raise OdooRpcError(f"Expected the technical name of a button such as create_invoices, got {name!r}")
+    selector = f'{DIALOG} .modal-footer button[name="{name}"]'
+    if button_id:
+        if not re.match(r"^[A-Za-z0-9_-]+$", str(button_id)):
+            raise OdooRpcError(f"Expected the id of a button such as create_invoice_open, got {button_id!r}")
+        selector += f'[id="{button_id}"]'
+    return selector
+
+
+def dialog_answer(model: str) -> str:
+    """Matcher of the answer that settles a button of a wizard of ``model``: the call of its method, or the save of
+    the wizard when it carries Odoo's refusal (Odoo 16 checks the wizard's constraints there, before any call)."""
+    if not re.match(r"^[a-z0-9_.]+$", str(model)):
+        raise OdooRpcError(f"Expected the technical name of a model such as sale.advance.payment.inv, got {model!r}")
+    saves = json.dumps([f"/web/dataset/call_kw/{model}/{method}" for method in ("create", "web_save")])
+    # A JavaScript predicate (Browser runs it in Playwright): no dollar sign nor backslash, which Robot would expand.
+    return ("async (response) => { const url = response.url(); "
+            "if (url.includes('/web/dataset/call_button')) return true; "
+            f"if (!{saves}.some((path) => url.endsWith(path))) return false; "
+            "try { return Boolean((await response.json()).error); } catch (error) { return false; } }")
+
+
+def action_of(response: Any) -> Optional[dict]:
+    """The action a button's answer returns (``res_model``, ``target``...), ``None`` when it returns none."""
+    body = response.get("body") if isinstance(response, dict) else None
+    if isinstance(body, str):
+        try:
+            body = json.loads(body)
+        except ValueError:
+            return None
+    result = body.get("result") if isinstance(body, dict) else None
+    return result if isinstance(result, dict) and result.get("type") else None
 
 
 def format_date(iso_date: str, date_format: str) -> str:
@@ -190,6 +265,33 @@ def parse_date(shown: str, date_format: str) -> str:
     if not str(shown).strip():
         return ""
     return datetime.strptime(str(shown).strip(), date_format).strftime(ISO_DATE)
+
+
+def matching_proposals(proposals: list, own_name: str, display_name: str) -> list:
+    """Positions of the autocomplete proposals that show the record: its display name whole (Odoo 16), or its own
+    name with the rest of its display name set apart (Odoo 19 shows a product's internal reference in a muted span).
+
+    ``proposals`` lists ``[whole text, label, set-apart text]`` per proposal."""
+    return [position for position, (whole, label, aside) in enumerate(proposals)
+            if whole == display_name or (label == own_name and aside and aside in display_name)]
+
+
+def proposal_shown(script: str, own_name: str, display_name: str) -> str:
+    """A predicate for Browser's ``Wait For Function``: a proposal ``script`` lists shows the record, as
+    `matching_proposals` reads it."""
+    own, display = json.dumps(own_name, ensure_ascii=False), json.dumps(display_name, ensure_ascii=False)
+    return (f"(widget) => ({script})(widget).some(([whole, label, aside]) => whole === {display} || "
+            f"(label === {own} && aside !== '' && {display}.includes(aside)))")
+
+
+def widget_shows_date(text: str) -> str:
+    """A predicate for Browser's ``Wait For Function``: the date widget shows ``text``, in its input or its button."""
+    return f"(widget) => ({SHOWN_DATE})(widget) === {json.dumps(text, ensure_ascii=False)}"
+
+
+def input_shows_text(text: str) -> str:
+    """A predicate for Browser's ``Wait For Function``: the input shows exactly ``text``."""
+    return f"(input) => input.value === {json.dumps(text, ensure_ascii=False)}"
 
 
 def radio_option(value: str) -> str:
@@ -319,10 +421,14 @@ def parse_web_location(url: str) -> dict:
 
 
 def action_lookup(action: str) -> tuple:
-    """Where to search the action of an ``/odoo/`` path segment: ``(model, domain)``.
+    """Where to search the action an address names: ``(model, domain)``.
 
-    ``ir.model.data`` (an ``action-<xmlid>`` segment) answers with the action's
+    A bare id is the ``action=`` of an Odoo 16 fragment; an ``/odoo/`` path
+    segment is the action's ``path`` (which starts with a letter), ``action-<id>``
+    or ``action-<xmlid>``, for which ``ir.model.data`` answers with the action's
     id, to read on ``ir.actions.act_window`` next."""
+    if str(action).isdigit():
+        return "ir.actions.act_window", [["id", "=", int(action)]]
     if action.startswith("action-"):
         reference = action[len("action-"):]
         if reference.isdigit():
